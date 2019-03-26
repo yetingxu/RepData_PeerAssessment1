@@ -5,21 +5,59 @@ output:
     keep_md: true
 ---
 
+```{r setoptions, echo=TRUE}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+```{r getdata}
+data<-read.csv("activity.csv")
+```
 
+```{r mean total steps}
+total<-with(data,tapply(steps,date,sum,na.rm=TRUE))
+total<-data.frame(date=names(total),steps=total)
+total$date<-as.Date(as.character(total$date))
+with(total,hist(steps))
+with(total,summary(steps))
+```
 
+```{r average daily activity pattern}
+average<-with(data,tapply(steps,interval,mean,na.rm=TRUE))
+average<-data.frame(interval=names(average),steps=average)
+average$interval<-as.character(average$interval)
+with(average,plot(interval, steps, type="l"))
+with(average,tapply(steps,interval,max))
+average[which.max(average$steps),]
+```
 
-## What is mean total number of steps taken per day?
+```{r imputing missing values}
+sum(is.na(data))
+library(plyr)
+library(dplyr)
+data_comp<-join(data,average, type="left",by="interval")
+names(data_comp)<-c("steps","date","interval","avg_steps")
+data_comp$steps<-as.double(data_comp$steps)
+data_comp<-data_comp %>% mutate(steps = if_else(is.na(steps), avg_steps, steps))
+data_comp$avg_steps<-NULL
 
+total_comp<-with(data_comp,tapply(steps,date,sum,na.rm=TRUE))
+total_comp<-data.frame(date=names(total_comp),steps=total_comp)
+total_comp$date<-as.Date(as.character(total_comp$date))
+with(total_comp,hist(steps))
+with(total_comp,summary(steps))
+```
 
+```{r weekday}
+data_comp$weekday<-weekdays(as.Date(data_comp$date))
+data_comp<-data_comp %>% mutate(weekday = if_else(weekday %in% c("Saturday","Sunday"), "weekend", "weekday"))
+data_comp$weekday<-as.factor(data_comp$weekday)
+avg_comp<-with(data_comp,tapply(steps,weekday,mean,na.rm=TRUE))
+avg_comp<-data.frame(weekday=names(avg_comp),steps=avg_comp)
 
-## What is the average daily activity pattern?
+avg<-data_comp %>% group_by(weekday,interval) %>% summarize(avg_steps=mean(steps))
+library(ggplot2)
+g<-ggplot(avg,aes(interval,avg_steps))
+g+geom_line()+facet_grid(weekday~.)+xlab("interval")+ylab("Number of steps")
+```
 
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
